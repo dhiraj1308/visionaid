@@ -6,3 +6,12 @@ Audio feedback for blind users
 Clear visual representation of Braille patterns
 Responsive design for all devices
 💡 Empowering the blind community through digital learning — because accessibility should never be optional.
+## 👥 Team Members
+
+- [@dhiraj1308](https://github.com/dhiraj1308) – Backend Developer  
+- [@ryleigh023](https://github.com/ryleigh023) – Frontend Developer  
+- [@Darshana9priya99](https://github.com/Darshana9priya99) – UI/UX Designer
+- [@SUDHEER-KANDURU](https://github.com/SUDHEER-KANDURU) - Content Developer and Braille Researcher
+- [@Prashant-4146](https://github.com/Prashant-4146) - Tester / Quality Assurance Engineer
+- 
+
