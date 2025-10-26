@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const brailleMap = {
   a: [1,0,0,0,0,0], b: [1,1,0,0,0,0], c: [1,0,0,1,0,0], d: [1,0,0,1,1,0],
@@ -13,6 +13,10 @@ const brailleMap = {
 export default function SpeechToBraille({ onBack }) {
   const [text, setText] = useState('');
   const [braillePatterns, setBraillePatterns] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef(null);
+  const baseTextRef = useRef('');
+  const shouldKeepListeningRef = useRef(false);
 
   useEffect(() => {
     const lowerText = text.toLowerCase();
@@ -20,12 +24,184 @@ export default function SpeechToBraille({ onBack }) {
     setBraillePatterns(patterns);
   }, [text]);
 
-  const speakText = () => {
-    if ('speechSynthesis' in window && text.trim()) {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'en-US';
-      window.speechSynthesis.speak(utter);
+  // Initialize SpeechRecognition (if available) and wire event handlers.
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      recognitionRef.current = null;
+      return;
     }
+
+    const recog = new SpeechRecognition();
+    // Keep listening until user explicitly stops
+    recog.continuous = true;
+    recog.interimResults = true;
+    recog.lang = 'en-US';
+
+    recog.onstart = () => setIsRecording(true);
+    recog.onend = () => {
+      // If user asked to keep listening, try to restart recognition. Some
+      // browsers end recognition periodically, so restarting preserves a
+      // continuous experience until the user presses Stop Listening.
+      if (shouldKeepListeningRef.current) {
+        // small delay to avoid potential start-after-end errors
+        setTimeout(() => {
+          try { recog.start(); } catch (e) { console.warn('Restart failed', e); }
+        }, 250);
+      } else {
+        setIsRecording(false);
+      }
+    };
+
+    recog.onerror = (evt) => {
+      console.error('Speech recognition error', evt);
+      // On serious errors, stop trying to keep it running
+      shouldKeepListeningRef.current = false;
+      setIsRecording(false);
+    };
+
+    recog.onresult = (event) => {
+      // Collect interim and final transcripts
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) final += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+
+      // If we have a final transcript, commit it to the base text; otherwise
+      // show interim as a preview without mutating the committed base text.
+      if (final) {
+        const prefix = baseTextRef.current && !baseTextRef.current.endsWith(' ') ? baseTextRef.current + ' ' : baseTextRef.current || '';
+        baseTextRef.current = prefix + final;
+        setText(baseTextRef.current);
+      } else {
+        const previewPrefix = baseTextRef.current && !baseTextRef.current.endsWith(' ') ? baseTextRef.current + ' ' : baseTextRef.current || '';
+        setText(previewPrefix + interim);
+      }
+    };
+
+  recognitionRef.current = recog;
+
+    return () => {
+      // cleanup
+      try {
+        shouldKeepListeningRef.current = false;
+        if (recognitionRef.current) recognitionRef.current.stop();
+      } catch (e) {
+        // ignore
+      }
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const handleListenClick = () => {
+    const recog = recognitionRef.current;
+    if (!recog) {
+      // Browser doesn't support Web Speech API
+      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    if (isRecording) {
+      // User explicitly requested stop: don't restart on onend
+      shouldKeepListeningRef.current = false;
+      try { recog.stop(); } catch (e) { console.warn(e); }
+      setIsRecording(false);
+    } else {
+      try {
+        // starting recognition will prompt for microphone permission
+        shouldKeepListeningRef.current = true;
+        recog.start();
+      } catch (e) {
+        // Some browsers throw if start is called repeatedly; handle gracefully
+        console.warn('Could not start recognition', e);
+        // Try a delayed restart in case of transient state
+        setTimeout(() => {
+          try { shouldKeepListeningRef.current = true; recog.start(); } catch (err) { console.warn('Retry start failed', err); }
+        }, 300);
+      }
+    }
+  };
+
+  const createPrintableHtml = (textValue, patterns) => {
+    // Use SVG circles so dots reliably appear in printed PDFs (browser
+    // print settings sometimes omit CSS background colors).
+    const dotStyle = `
+      .braille-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+      .braille-char{ width:84px; height:126px; display:flex; align-items:center; justify-content:center; margin:8px; }
+      body{ font-family: Arial, Helvetica, sans-serif; padding:24px; color:#111; }
+      h1{ font-size:20px; margin-bottom:8px; }
+      pre{ white-space:pre-wrap; word-wrap:break-word; background:transparent; }
+    `;
+
+    const buildCharSvg = (dots, idx) => {
+      // positions for the 6 dots (x,y) in a 2x3 grid
+      const coords = [ [18,18],[54,18], [18,54],[54,54], [18,90],[54,90] ];
+      const circles = dots.map((d, i) => {
+        const [cx, cy] = coords[i];
+        const fill = d ? '#000' : '#fff';
+        const stroke = '#000';
+        return `<circle cx="${cx}" cy="${cy}" r="12" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
+      }).join('');
+
+      return `
+        <div class="braille-char" aria-hidden="true">
+          <svg width="84" height="126" viewBox="0 0 72 108" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="braille character ${idx}">
+            <rect width="100%" height="100%" fill="white" />
+            ${circles}
+          </svg>
+        </div>
+      `;
+    };
+
+    const charsHtml = patterns.map((p,i) => buildCharSvg(p,i)).join('');
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Braille Print</title>
+          <style>${dotStyle}</style>
+        </head>
+        <body>
+          <h1>Braille Output</h1>
+          <section>
+            <strong>Original text:</strong>
+            <pre>${String(textValue || '')}</pre>
+          </section>
+          <hr />
+          <section class="braille-row">
+            ${charsHtml}
+          </section>
+          <script>
+            // Auto-print when the page finishes loading. Small timeout gives
+            // the browser a moment to render SVGs before the print dialog.
+            window.onload = function() { setTimeout(function(){ window.focus(); window.print(); }, 250); };
+          </script>
+        </body>
+      </html>
+    `;
+  };
+
+  const handlePrint = () => {
+    if (!braillePatterns || braillePatterns.length === 0) {
+      alert('No braille output to print. Please enter or speak some text first.');
+      return;
+    }
+
+    const printable = createPrintableHtml(baseTextRef.current || text, braillePatterns);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Unable to open print window. Please allow popups for this site.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(printable);
+    printWindow.document.close();
+    printWindow.focus();
   };
 
   return (
@@ -48,7 +224,7 @@ export default function SpeechToBraille({ onBack }) {
         id="textInput"
         rows="4"
         value={text}
-        onChange={(e) => setText(e.currentTarget.value)}
+        onChange={(e) => { baseTextRef.current = e.currentTarget.value; setText(e.currentTarget.value); }}
         placeholder="Type or paste text here"
         aria-multiline="true"
         spellCheck="false"
@@ -65,8 +241,8 @@ export default function SpeechToBraille({ onBack }) {
         }}
       />
       <button
-        onClick={speakText}
-        aria-label="Read text aloud"
+        onClick={handleListenClick}
+        aria-label={isRecording ? "Stop listening" : "Start listening"}
         style={{
           marginBottom: '2em',
           fontWeight: '700',
@@ -74,7 +250,7 @@ export default function SpeechToBraille({ onBack }) {
           padding: '0.6em 1.2em',
           borderRadius: '7px',
           border: 'none',
-          background: 'linear-gradient(90deg, #3753ff, #84aafe)',
+          background: isRecording ? 'linear-gradient(90deg, #ff5c5c, #ff8a8a)' : 'linear-gradient(90deg, #3753ff, #84aafe)',
           color: 'white',
           fontSize: '1.1rem',
           display: 'block',
@@ -83,8 +259,32 @@ export default function SpeechToBraille({ onBack }) {
           boxShadow: '0 4px 32px rgba(55, 83, 255, 0.1)'
         }}
       >
-         Click to Speak
+         {isRecording ? 'Stop Listening' : 'Click to Speak'}
       </button>
+
+      {(text && text.trim().length > 0) || braillePatterns.length > 0 ? (
+        <button
+          onClick={handlePrint}
+          aria-label="Print braille output"
+          style={{
+            marginBottom: '2em',
+            fontWeight: '700',
+            cursor: 'pointer',
+            padding: '0.6em 1.2em',
+            borderRadius: '7px',
+            border: 'none',
+            background: 'linear-gradient(90deg, #22c55e, #7ee787)',
+            color: 'white',
+            fontSize: '1.1rem',
+            display: 'block',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            boxShadow: '0 4px 24px rgba(34,197,94,0.12)'
+          }}
+        >
+          Print Braille
+        </button>
+      ) : null}
 
       <section className="braille-grid" aria-live="polite" aria-label="Braille output">
         {braillePatterns.length === 0 ? (
