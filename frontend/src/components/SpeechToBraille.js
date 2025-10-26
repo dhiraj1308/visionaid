@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-const brailleMap = {
-  a: [1,0,0,0,0,0], b: [1,1,0,0,0,0], c: [1,0,0,1,0,0], d: [1,0,0,1,1,0],
-  e: [1,0,0,0,1,0], f: [1,1,0,1,0,0], g: [1,1,0,1,1,0], h: [1,1,0,0,1,0],
-  i: [0,1,0,1,0,0], j: [0,1,0,1,1,0], k: [1,0,1,0,0,0], l: [1,1,1,0,0,0],
-  m: [1,0,1,1,0,0], n: [1,0,1,1,1,0], o: [1,0,1,0,1,0], p: [1,1,1,1,0,0],
-  q: [1,1,1,1,1,0], r: [1,1,1,0,1,0], s: [0,1,1,1,0,0], t: [0,1,1,1,1,0],
-  u: [1,0,1,0,0,1], v: [1,1,1,0,0,1], w: [0,1,0,1,1,1], x: [1,0,1,1,0,1],
-  y: [1,0,1,1,1,1], z: [1,0,1,0,1,1], ' ': [0,0,0,0,0,0]
-};
+import axios from 'axios';
 
 export default function SpeechToBraille({ onBack }) {
   const [text, setText] = useState('');
@@ -19,10 +10,30 @@ export default function SpeechToBraille({ onBack }) {
   const shouldKeepListeningRef = useRef(false);
   const [printSize, setPrintSize] = useState('small'); // 'small' or 'normal'
 
+  // Fetch dot patterns from backend (debounced)
   useEffect(() => {
-    const lowerText = text.toLowerCase();
-    const patterns = [...lowerText].map(ch => brailleMap[ch] || [0,0,0,0,0,0]);
-    setBraillePatterns(patterns);
+    if (!text) { setBraillePatterns([]); return; }
+    const controller = new AbortController();
+    const id = setTimeout(() => {
+      (async () => {
+        try {
+          const res = await axios.post('http://localhost:8080/api/braille/dots', text, {
+            headers: { 'Content-Type': 'text/plain' },
+            signal: controller.signal
+          });
+          const json = res.data;
+          // expect json to be array of arrays (6 ints each)
+          setBraillePatterns(json || []);
+        } catch (e) {
+          if (e.name !== 'CanceledError' && e.name !== 'AbortError') console.error('Braille fetch error', e);
+        }
+      })();
+    }, 250);
+
+    return () => {
+      controller.abort();
+      clearTimeout(id);
+    };
   }, [text]);
 
   // Initialize SpeechRecognition (if available) and wire event handlers.
@@ -212,6 +223,8 @@ export default function SpeechToBraille({ onBack }) {
     printWindow.focus();
   };
 
+
+
   return (
     <div className="main-bg interactive-bg">
       <button
@@ -277,6 +290,7 @@ export default function SpeechToBraille({ onBack }) {
             <option value="small">Small</option>
             <option value="normal">Normal</option>
           </select>
+         
 
           <button
             onClick={() => handlePrint(printSize)}

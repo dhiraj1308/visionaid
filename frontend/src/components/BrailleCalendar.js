@@ -1,23 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import './BrailleCalendar.css';
 
-// Braille digit patterns (0-9)
-const brailleDigits = {
-  0: [0,1,1,1,1,0],
-  1: [1,0,0,0,0,0],
-  2: [1,1,0,0,0,0],
-  3: [1,0,0,1,0,0],
-  4: [1,0,0,1,1,0],
-  5: [1,0,0,0,1,0],
-  6: [1,1,0,1,0,0],
-  7: [1,1,0,1,1,0],
-  8: [1,1,0,0,1,0],
-  9: [0,1,0,1,0,0],
-};
-
-// Braille digit renderer
-function BrailleDigit({ digit }) {
-  const dots = brailleDigits[digit] || [0,0,0,0,0,0];
+// Braille digit renderer: now accepts a dots array (6 elements of 0/1)
+function BrailleDigit({ dots }) {
+  const d = dots || [0,0,0,0,0,0];
   return (
     <div style={{ display: 'inline-block', verticalAlign: 'middle' }}>
       <div style={{
@@ -27,7 +14,7 @@ function BrailleDigit({ digit }) {
         gap: '3px',
         margin: '0 auto'
       }}>
-        {dots.map((filled, idx) => (
+        {d.map((filled, idx) => (
           <div
             key={idx}
             style={{
@@ -75,12 +62,42 @@ export default function BrailleCalendar({ onBack }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
+  const [digitsMap, setDigitsMap] = useState(null);
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const matrix = getMonthMatrix(year, month);
+
+  useEffect(() => {
+    // fetch mapping for digits 0-9 once and cache it
+    (async () => {
+      try {
+        const res = await axios.post('http://localhost:8080/api/braille/dots', '0123456789', { headers: { 'Content-Type': 'text/plain' } });
+        const json = res.data;
+        // json expected to be array of arrays in order for '0','1',..'9'
+        const map = {};
+        // If backend returns for '0'..'9' in order, map accordingly
+        const sample = json || [];
+        for (let i = 0; i < sample.length; i++) {
+          const ch = String(sample.length === 10 ? i : i); // if length 10, index i corresponds to char at position i in '0123456789'
+          map[ch] = sample[i];
+        }
+        // ensure characters '0'..'9' are keys
+        if (sample.length === 10) {
+          const explicit = {};
+          for (let i = 0; i < 10; i++) explicit[String(i)] = sample[i];
+          setDigitsMap(explicit);
+        } else {
+          setDigitsMap(map);
+        }
+      } catch (e) {
+        console.warn('Unable to load digit braille patterns', e);
+        setDigitsMap(null);
+      }
+    })();
+  }, []);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(year - 1); }
@@ -131,9 +148,10 @@ export default function BrailleCalendar({ onBack }) {
               >
                 <span className="calendar-day-num">{cell}</span>
                 <span className="calendar-braille">
-                  {cell.toString().split('').map((digit, idx) => (
-                    <BrailleDigit key={idx} digit={parseInt(digit)} />
-                  ))}
+                  {cell.toString().split('').map((digit, idx) => {
+                    const pattern = digitsMap && digitsMap[digit] ? digitsMap[digit] : [0,0,0,0,0,0];
+                    return <BrailleDigit key={idx} dots={pattern} />;
+                  })}
                 </span>
               </div>
             ) : (

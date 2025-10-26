@@ -5,17 +5,18 @@ body, html, #root {
 }
 
 .main-bg {
+  /* Allow normal document flow so the page can scroll naturally
+     Avoid position:fixed which pins content and can hide elements */
+  position: relative;
+  width: 100%;
   min-height: 100vh;
-  min-width: 100vw;
-  width: 100vw;
-  height: 100vh;
-  position: fixed;
-  overflow: auto;
-  top: 0; left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* place header at top so it's visible */
+  overflow: visible;
+  box-sizing: border-box;
+  padding-top: 2.5rem; /* leave space for absolutely-positioned Back button */
 }
 
 /* Animated background: */
@@ -36,10 +37,14 @@ body, html, #root {
 .centered-header h1 {
   margin: 0 0 0.5em 0;
   font-family: 'Raleway', 'Inter', Arial, sans-serif;
-  font-size: 3.5rem;
+  /* Responsive, wrapping heading so long titles don't overflow */
+  font-size: clamp(1.6rem, 5.5vw, 2.8rem);
+  max-width: min(92%, 900px);
+  word-break: break-word;
+  white-space: normal;
   font-weight: 900;
   color: #2a4ae4;
-  letter-spacing: -2px;
+  letter-spacing: -0.02em;
   text-shadow: 0 4px 36px rgba(54,44,187,0.04);
 }
 .centered-header .subtitle {
