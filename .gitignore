@@ -1,0 +1,20 @@
+# Repository-level ignores
+
+# Node.js
+node_modules/
+frontend/node_modules/
+frontend/build/
+
+# Java build
+/visionaid/target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
