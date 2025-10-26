@@ -1,4 +1,4 @@
-package com.srm.visionaid.service.impl;
+package com.srm.visionaid.service;
 
 import com.srm.visionaid.entity.ConversionRecord;
 import com.srm.visionaid.repository.ConversionRecordRepository;
