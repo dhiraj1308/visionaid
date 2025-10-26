@@ -17,6 +17,7 @@ export default function SpeechToBraille({ onBack }) {
   const recognitionRef = useRef(null);
   const baseTextRef = useRef('');
   const shouldKeepListeningRef = useRef(false);
+  const [printSize, setPrintSize] = useState('small'); // 'small' or 'normal'
 
   useEffect(() => {
     const lowerText = text.toLowerCase();
@@ -125,30 +126,38 @@ export default function SpeechToBraille({ onBack }) {
     }
   };
 
-  const createPrintableHtml = (textValue, patterns) => {
+  const createPrintableHtml = (textValue, patterns, size = 'small') => {
     // Use SVG circles so dots reliably appear in printed PDFs (browser
     // print settings sometimes omit CSS background colors).
+    // Adjust sizes for 'small' or 'normal' print sizes
+    const isSmall = size === 'small';
+    const brailleRowGap = isSmall ? 8 : 12;
+    const charWidth = isSmall ? 48 : 84;
+    const charHeight = isSmall ? 72 : 126;
+    const viewBoxW = isSmall ? 36 : 72;
+    const viewBoxH = isSmall ? 54 : 108;
+    const coords = isSmall ? [ [9,9],[27,9], [9,27],[27,27], [9,45],[27,45] ] : [ [18,18],[54,18], [18,54],[54,54], [18,90],[54,90] ];
+    const dotR = isSmall ? 6 : 12;
+
     const dotStyle = `
-      .braille-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
-      .braille-char{ width:84px; height:126px; display:flex; align-items:center; justify-content:center; margin:8px; }
-      body{ font-family: Arial, Helvetica, sans-serif; padding:24px; color:#111; }
-      h1{ font-size:20px; margin-bottom:8px; }
+      .braille-row{ display:flex; flex-wrap:wrap; gap:${brailleRowGap}px; align-items:flex-start; }
+      .braille-char{ width:${charWidth}px; height:${charHeight}px; display:flex; align-items:center; justify-content:center; margin:6px; }
+      body{ font-family: Arial, Helvetica, sans-serif; padding:20px; color:#111; }
+      h1{ font-size:${isSmall ? 16 : 20}px; margin-bottom:8px; }
       pre{ white-space:pre-wrap; word-wrap:break-word; background:transparent; }
     `;
 
     const buildCharSvg = (dots, idx) => {
-      // positions for the 6 dots (x,y) in a 2x3 grid
-      const coords = [ [18,18],[54,18], [18,54],[54,54], [18,90],[54,90] ];
       const circles = dots.map((d, i) => {
         const [cx, cy] = coords[i];
         const fill = d ? '#000' : '#fff';
         const stroke = '#000';
-        return `<circle cx="${cx}" cy="${cy}" r="12" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
+        return `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
       }).join('');
 
       return `
         <div class="braille-char" aria-hidden="true">
-          <svg width="84" height="126" viewBox="0 0 72 108" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="braille character ${idx}">
+          <svg width="${charWidth}" height="${charHeight}" viewBox="0 0 ${viewBoxW} ${viewBoxH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="braille character ${idx}">
             <rect width="100%" height="100%" fill="white" />
             ${circles}
           </svg>
@@ -186,13 +195,12 @@ export default function SpeechToBraille({ onBack }) {
     `;
   };
 
-  const handlePrint = () => {
+  const handlePrint = (size = 'small') => {
     if (!braillePatterns || braillePatterns.length === 0) {
       alert('No braille output to print. Please enter or speak some text first.');
       return;
     }
-
-    const printable = createPrintableHtml(baseTextRef.current || text, braillePatterns);
+    const printable = createPrintableHtml(baseTextRef.current || text, braillePatterns, size);
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Unable to open print window. Please allow popups for this site.');
@@ -263,27 +271,33 @@ export default function SpeechToBraille({ onBack }) {
       </button>
 
       {(text && text.trim().length > 0) || braillePatterns.length > 0 ? (
-        <button
-          onClick={handlePrint}
-          aria-label="Print braille output"
-          style={{
-            marginBottom: '2em',
-            fontWeight: '700',
-            cursor: 'pointer',
-            padding: '0.6em 1.2em',
-            borderRadius: '7px',
-            border: 'none',
-            background: 'linear-gradient(90deg, #22c55e, #7ee787)',
-            color: 'white',
-            fontSize: '1.1rem',
-            display: 'block',
-            marginLeft: 'auto',
-            marginRight: 'auto',
-            boxShadow: '0 4px 24px rgba(34,197,94,0.12)'
-          }}
-        >
-          Print Braille
-        </button>
+        <div style={{ width: '100%', maxWidth: 480, margin: '0 auto 1em auto', textAlign: 'center' }}>
+          <label htmlFor="printSize" style={{ marginRight: 8 }}>Print size:</label>
+          <select id="printSize" value={printSize} onChange={(e) => setPrintSize(e.target.value)} style={{ marginRight: 12 }}>
+            <option value="small">Small</option>
+            <option value="normal">Normal</option>
+          </select>
+
+          <button
+            onClick={() => handlePrint(printSize)}
+            aria-label="Print braille output"
+            style={{
+              marginBottom: '2em',
+              fontWeight: '700',
+              cursor: 'pointer',
+              padding: '0.6em 1.2em',
+              borderRadius: '7px',
+              border: 'none',
+              background: 'linear-gradient(90deg, #22c55e, #7ee787)',
+              color: 'white',
+              fontSize: '1.1rem',
+              display: 'inline-block',
+              boxShadow: '0 4px 24px rgba(34,197,94,0.12)'
+            }}
+          >
+            Print Braille
+          </button>
+        </div>
       ) : null}
 
       <section className="braille-grid" aria-live="polite" aria-label="Braille output">
