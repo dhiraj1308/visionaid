@@ -7,7 +7,7 @@ Interactive lessons and practice modules
 Audio feedback for blind users
 Clear visual representation of Braille patterns
 Responsive design for all devices
-Empowering the blind community through digital learning — because accessibility should never be optional.
+Empowering the blind community through digital learning — because accessibility should not be optional.
 
 
 ## Team Members
