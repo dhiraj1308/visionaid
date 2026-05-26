@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../api';
 
 export default function SpeechToBraille({ onBack }) {
   const [text, setText] = useState('');
@@ -17,7 +18,7 @@ export default function SpeechToBraille({ onBack }) {
     const id = setTimeout(() => {
       (async () => {
         try {
-          const res = await axios.post('http://localhost:8080/api/braille/dots', text, {
+          const res = await axios.post(`${API_BASE}/braille/dots`, text, {
             headers: { 'Content-Type': 'text/plain' },
             signal: controller.signal
           });

@@ -2,6 +2,7 @@ package com.srm.visionaid.service;
 
 import com.srm.visionaid.entity.ConversionRecord;
 import com.srm.visionaid.repository.ConversionRecordRepository;
+import com.srm.visionaid.service.BrailleConversionService;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -164,3 +165,4 @@ public class BrailleConversionServiceImpl implements BrailleConversionService {
         return " ";
     }
 }
+

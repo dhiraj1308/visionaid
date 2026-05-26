@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './BrailleCalendar.css';
+import { API_BASE } from '../api';
 
 // Braille digit renderer: now accepts a dots array (6 elements of 0/1)
 function BrailleDigit({ dots }) {
@@ -74,7 +75,7 @@ export default function BrailleCalendar({ onBack }) {
     // fetch mapping for digits 0-9 once and cache it
     (async () => {
       try {
-        const res = await axios.post('http://localhost:8080/api/braille/dots', '0123456789', { headers: { 'Content-Type': 'text/plain' } });
+        const res = await axios.post(`${API_BASE}/braille/dots`, '0123456789', { headers: { 'Content-Type': 'text/plain' } });
         const json = res.data;
         // json expected to be array of arrays in order for '0','1',..'9'
         const map = {};
