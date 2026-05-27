@@ -1,2 +1,2 @@
 // Central API base URL for frontend
-export const API_BASE = "https://visionaid.railway.internal/api/braille/dots";
+export const API_BASE = "https://visionaid.up.railway.app/api/braille/dots";
