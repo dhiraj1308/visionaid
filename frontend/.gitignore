@@ -1,0 +1,12 @@
+# Frontend-specific ignores
+
+# Node
+node_modules/
+build/
+
+# Local env
+.env
+
+# Editor
+.vscode/
+.DS_Store

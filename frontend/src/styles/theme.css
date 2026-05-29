@@ -220,8 +220,10 @@ html, body, #root, .main-bg {
   font-weight:900;
 }
 .centered-header h1 {
-  font-size: 5rem !important;
-  letter-spacing: 0.1em !important;
+  /* Make the hero title responsive so it doesn't overflow viewport
+     Use a clamp to keep size reasonable across devices */
+  font-size: clamp(2rem, 6vw, 3rem) !important;
+  letter-spacing: 0.08em !important;
 }
 
 html, body, #root, .main-bg, .interactive-bg, .centered-header, button {
@@ -231,11 +233,17 @@ html, body, #root, .main-bg, .interactive-bg, .centered-header, button {
 }
 .main-bg, .interactive-bg {
   min-height: 100vh;
-  width: 100vw;
+  /* Use percentage width so scrollbars don't create layout jumps */
+  width: 100%;
   /* Soft pastel gradient background */
   background: linear-gradient(135deg, #eaf4fb 13%, #cbe6fc 58%, #e5f1fd 100%);
   position: relative;
-  overflow: hidden;
+  /* Allow vertical scrolling only; prevent horizontal overflow */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  padding-bottom: 3rem; /* ensure background decorations don't cover last content */
 }
 
 .bg-decoration {
@@ -276,4 +284,14 @@ html, body, #root, .main-bg, .interactive-bg, .centered-header, button {
 @keyframes bg-float2 {
   from { transform: translateY(0px); }
   to { transform: translateY(-28px) scale(1.06); }
+}
+
+/* Force only vertical scrolling across the app and remove horizontal scrollbar */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }

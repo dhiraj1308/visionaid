@@ -17,6 +17,8 @@ function App() {
       {page === 'chart' && <BrailleChart onBack={() => setPage('home')} />}
       {page === 'speech' && <SpeechToBraille onBack={() => setPage('home')} />}
       {page === 'calendar' && <BrailleCalendar onBack={() => setPage('home')} />}
+      {console.log("Current Page:", page)}
+      
     </div>
   );
 }
